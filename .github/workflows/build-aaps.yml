@@ -34,15 +34,15 @@ jobs:
         run: |
           yes | ./gradlew --no-daemon sdk:acceptLicenses || true
 
-      - name: Build Smartphone (Full) Debug APK
+      - name: Build Smartphone (Full) APK
         working-directory: source
         run: ./gradlew assembleFullDebug --stacktrace --info
 
-      - name: Build Smartwatch (Wear) Debug APK
+      - name: Build Smartwatch (Wear) APK
         working-directory: source
         run: ./gradlew :wear:assembleDebug --stacktrace --info
 
-      - name: Build Client (Aapsclient) Debug APK
+      - name: Build Client (Aapsclient) APK
         working-directory: source
         run: ./gradlew assembleAapsclientDebug --stacktrace --info
 
