@@ -1,50 +1,58 @@
-name: Build AndroidAPS 3.4.0.0 APKs
+name: Build AndroidAPS 3.4.0.0 Debug APKs
 
 on:
-  workflow_dispatch:  # Allows manual trigger from GitHub UI
+  workflow_dispatch:  # Manual trigger
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout this repo
+      - name: Checkout this repo (for workflow files)
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 21 (no Gradle cache – project cloned later)
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: gradle
+          # Removed cache: gradle – this was causing the error
 
-      - name: Clone AndroidAPS repo
+      - name: Clone original AndroidAPS repo at tag 3.4.0.0
         run: |
           git clone https://github.com/nightscout/AndroidAPS.git source
           cd source
-          git checkout 3.4.0.0  # Specific tag for version 3.4.0.0
+          git fetch --tags --force
+          git checkout 3.4.0.0
 
       - name: Grant execute permission for gradlew
         working-directory: source
         run: chmod +x ./gradlew
 
-      - name: Build Smartphone APK (full debug)
+      - name: Accept Android SDK licenses (if prompted)
         working-directory: source
-        run: ./gradlew assembleFullDebug  # Use assembleFullRelease for signed
+        run: |
+          yes | ./gradlew --no-daemon sdk:acceptLicenses || true
 
-      - name: Build Smartwatch APK (wear debug)
+      - name: Build Smartphone (Full) Debug APK
         working-directory: source
-        run: ./gradlew :wear:assembleDebug  # Use :wear:assembleFullRelease for signed
+        run: ./gradlew assembleFullDebug --stacktrace --info
 
-      - name: Build Client APK (nsclient debug)
+      - name: Build Smartwatch (Wear) Debug APK
         working-directory: source
-        run: ./gradlew assembleNsclientDebug  # Use assembleNsclientRelease for signed
+        run: ./gradlew :wear:assembleDebug --stacktrace --info
 
-      - name: Upload APKs as Artifacts
+      - name: Build Client (Nsclient) Debug APK
+        working-directory: source
+        run: ./gradlew assembleNsclientDebug --stacktrace --info
+
+      - name: Upload Debug APKs as Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: aaps-apks
+          name: aaps-3.4.0.0-debug-apks
           path: |
-            source/app/build/outputs/apk/full/debug/app-full-debug.apk
-            source/wear/build/outputs/apk/debug/wear-debug.apk
-            source/app/build/outputs/apk/nsclient/debug/app-nsclient-debug.apk
-          retention-days: 7
+            source/app/build/outputs/apk/full/debug/*.apk
+            source/wear/build/outputs/apk/debug/*.apk
+            source/app/build/outputs/apk/nsclient/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
