@@ -1,4 +1,4 @@
-name: Build AndroidAPS 3.4.0.0 Debug APKs
+name: Build AndroidAPS 3.4.0.0 APKs
 
 on:
   workflow_dispatch:  # Manual trigger
