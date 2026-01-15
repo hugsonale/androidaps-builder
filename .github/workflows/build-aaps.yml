@@ -1,0 +1,50 @@
+name: Build AndroidAPS 3.4.0.0 APKs
+
+on:
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Clone AndroidAPS repo
+        run: |
+          git clone https://github.com/nightscout/AndroidAPS.git source
+          cd source
+          git checkout 3.4.0.0  # Specific tag for version 3.4.0.0
+
+      - name: Grant execute permission for gradlew
+        working-directory: source
+        run: chmod +x ./gradlew
+
+      - name: Build Smartphone APK (full debug)
+        working-directory: source
+        run: ./gradlew assembleFullDebug  # Use assembleFullRelease for signed
+
+      - name: Build Smartwatch APK (wear debug)
+        working-directory: source
+        run: ./gradlew :wear:assembleDebug  # Use :wear:assembleFullRelease for signed
+
+      - name: Build Client APK (nsclient debug)
+        working-directory: source
+        run: ./gradlew assembleNsclientDebug  # Use assembleNsclientRelease for signed
+
+      - name: Upload APKs as Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aaps-apks
+          path: |
+            source/app/build/outputs/apk/full/debug/app-full-debug.apk
+            source/wear/build/outputs/apk/debug/wear-debug.apk
+            source/app/build/outputs/apk/nsclient/debug/app-nsclient-debug.apk
+          retention-days: 7
