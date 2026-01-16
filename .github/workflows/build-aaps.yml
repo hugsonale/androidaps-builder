@@ -1,17 +1,17 @@
-name: Build AndroidAPS 3.4.0.0 APKs
+name: Build AndroidAPS 3.4.0.0 APKs # This is with Release Option
 
 on:
-  workflow_dispatch:  
+  workflow_dispatch: 
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout this repo (for workflow files)
+      - name: Checkout this repo
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21 (no Gradle cache – project cloned later)
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -28,42 +28,62 @@ jobs:
         working-directory: source
         run: chmod +x ./gradlew
 
-      - name: Accept Android SDK licenses (if prompted)
+      - name: Accept Android SDK licenses
         working-directory: source
-        run: |
-          yes | ./gradlew --no-daemon sdk:acceptLicenses || true
+        run: yes | ./gradlew --no-daemon sdk:acceptLicenses || true
 
-      - name: Build Smartphone (Full) Debug APK
+      
+      - name: Build Smartphone (Full) APK
         working-directory: source
         run: ./gradlew assembleFullDebug --stacktrace --info
 
-      - name: Build Smartwatch (Wear) Debug APK
+      - name: Build Smartwatch (Wear) APK
         working-directory: source
         run: ./gradlew :wear:assembleFullDebug --stacktrace --info || ./gradlew :wear:assembleDebug --stacktrace --info
 
-      - name: Build Client (Aapsclient) Debug APK
+      - name: Build Client (Aapsclient) APK
         working-directory: source
         run: ./gradlew assembleAapsclientDebug --stacktrace --info
 
-      - name: List all APK (and AAB) outputs for debugging
+      #  Release build (uncomment when signing is set up)
+      # - name: Decode Keystore (add secrets first!)
+      #   if: false  # change to true when ready
+      #   run: echo "${{ secrets.SIGNING_KEY }}" | base64 --decode > source/keystore.jks
+      #
+      # - name: Build Smartphone (Full) Release APK
+      #   working-directory: source
+      #   env:
+      #     STORE_FILE: keystore.jks
+      #     STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      #     KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      #     KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      #   run: ./gradlew assembleFullRelease --stacktrace --info
+
+      # Diagnostics: Check all APKs + navigation files specifically
+      - name: List Outputs & Navigation Resources
         working-directory: source
         run: |
-          echo "All .apk files found:"
+          echo "=== All .apk files ==="
           find . -name "*.apk" || true
           echo ""
-          echo "All .aab files found (if Wear outputs bundle):"
+          echo "=== All .aab files ==="
           find . -name "*.aab" || true
           echo ""
-          echo "Detailed listing of build/outputs/apk directory:"
-          ls -R build/outputs/apk || true
+          echo "=== Navigation directory contents (look for pod deactivation graph) ==="
+          find . -path "*/res/navigation/*" -name "*.xml" || true
+          echo ""
+          echo "=== Detailed apk output dirs ==="
+          ls -R app/build/outputs/apk || true
+          ls -R wear/build/outputs/apk || true
 
-      - name: Upload Debug APKs as Artifacts
+      - name: Upload Artifacts (debug focus)
         uses: actions/upload-artifact@v4
         with:
-          name: aaps-3.4.0.0-debug-apks
+          name: aaps-3.4.0.0-apks
           path: |
-            source/app/build/outputs/apk/full/debug/*.apk
-            source/wear/build/outputs/apk/debug/*.apk
-            source/app/build/outputs/apk/aapsclient/debug/*.apk
-          if-no-files-found: warn  
+            source/**/debug/**/*.apk
+            source/**/debug/*.apk
+            # Add release paths when enabled:
+            # source/**/release/**/*.apk
+          if-no-files-found: warn
           retention-days: 14
