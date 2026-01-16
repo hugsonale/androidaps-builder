@@ -5,18 +5,19 @@ on:
 
 jobs:
   build-release:
-    runs-on: ubuntu-latest  
+    runs-on: ubuntu-latest
+    timeout-minutes: 45  
 
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21 with Gradle cache
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: gradle  
+          #
 
       - name: Clone original AndroidAPS repo at tag 3.4.0.0
         run: |
@@ -24,6 +25,11 @@ jobs:
           cd source
           git fetch --tags --force
           git checkout 3.4.0.0
+
+      - name: Setup Gradle (caching + wrapper)
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: wrapper  
 
       - name: Grant execute permission for gradlew
         working-directory: source
@@ -33,11 +39,9 @@ jobs:
         working-directory: source
         run: yes | ./gradlew --no-daemon sdk:acceptLicenses || true
 
-      
       - name: Decode Keystore
         run: echo "${{ secrets.SIGNING_KEY }}" | base64 --decode > source/keystore.jks
 
-    
       - name: Build Smartphone Release
         working-directory: source
         env:
@@ -45,7 +49,7 @@ jobs:
           STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleFullRelease --stacktrace --info --max-workers 4  # --max-workers speeds up
+        run: ./gradlew assembleFullRelease --stacktrace --info --max-workers 4
 
       - name: Build Client Release
         working-directory: source
@@ -65,17 +69,15 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew :wear:assembleFullRelease --stacktrace --info --max-workers 4 || ./gradlew :wear:assembleRelease --stacktrace --info --max-workers 4
 
-      
       - name: List Release Outputs
         working-directory: source
         run: |
           echo "=== Release APKs ==="
           find . -name "*Release.apk" || true
           find . -name "*Release.aab" || true
-          ls -R app/build/outputs/apk || true
-          ls -R wear/build/outputs/apk || true
+          ls -R app/build/outputs/apk/release || true
+          ls -R wear/build/outputs/apk/release || true
 
-      
       - name: Upload Release Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -83,5 +85,6 @@ jobs:
           path: |
             source/**/release/**/*.apk
             source/**/release/*.apk
+            source/**/release/**/*.aab
           if-no-files-found: error
           retention-days: 14
