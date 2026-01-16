@@ -6,7 +6,7 @@ on:
 jobs:
   build-release:
     runs-on: ubuntu-latest
-    timeout-minutes: 45  
+    timeout-minutes: 60  # Extra time
 
     steps:
       - name: Checkout this repo
@@ -17,7 +17,6 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          #
 
       - name: Clone original AndroidAPS repo at tag 3.4.0.0
         run: |
@@ -25,11 +24,6 @@ jobs:
           cd source
           git fetch --tags --force
           git checkout 3.4.0.0
-
-      - name: Setup Gradle (caching + wrapper)
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: wrapper  
 
       - name: Grant execute permission for gradlew
         working-directory: source
@@ -72,11 +66,8 @@ jobs:
       - name: List Release Outputs
         working-directory: source
         run: |
-          echo "=== Release APKs ==="
           find . -name "*Release.apk" || true
           find . -name "*Release.aab" || true
-          ls -R app/build/outputs/apk/release || true
-          ls -R wear/build/outputs/apk/release || true
 
       - name: Upload Release Artifacts
         uses: actions/upload-artifact@v4
@@ -85,6 +76,5 @@ jobs:
           path: |
             source/**/release/**/*.apk
             source/**/release/*.apk
-            source/**/release/**/*.aab
           if-no-files-found: error
           retention-days: 14
