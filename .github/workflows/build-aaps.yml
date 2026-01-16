@@ -1,4 +1,4 @@
-name: Build AndroidAPS 3.4.0.0 APKs # This is with Release Option
+name: Build AndroidAPS 3.4.0.0 APKs # This is with Release Option. Kelvin, This should work.
 
 on:
   workflow_dispatch: 
@@ -59,7 +59,7 @@ jobs:
       #     KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       #   run: ./gradlew assembleFullRelease --stacktrace --info
 
-      # Diagnostics: Check all APKs + navigation files specifically
+      # check all APKs with navigation files
       - name: List Outputs & Navigation Resources
         working-directory: source
         run: |
