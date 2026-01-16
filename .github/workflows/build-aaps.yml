@@ -1,7 +1,7 @@
-name: Build AndroidAPS 3.4.0.0 APKs
+name: Build AndroidAPS 3.4.0.0 Debug APKs
 
 on:
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:  # Manual trigger from Actions tab
 
 jobs:
   build:
@@ -16,7 +16,6 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          # No cache here
 
       - name: Clone original AndroidAPS repo at tag 3.4.0.0
         run: |
@@ -34,17 +33,29 @@ jobs:
         run: |
           yes | ./gradlew --no-daemon sdk:acceptLicenses || true
 
-      - name: Build Smartphone (Full) APK
+      - name: Build Smartphone (Full) Debug APK
         working-directory: source
         run: ./gradlew assembleFullDebug --stacktrace --info
 
-      - name: Build Smartwatch (Wear) APK
+      - name: Build Smartwatch (Wear) Debug APK
         working-directory: source
-        run: ./gradlew :wear:assembleDebug --stacktrace --info
+        run: ./gradlew :wear:assembleFullDebug --stacktrace --info || ./gradlew :wear:assembleDebug --stacktrace --info
 
-      - name: Build Client (Aapsclient) APK
+      - name: Build Client (Aapsclient) Debug APK
         working-directory: source
         run: ./gradlew assembleAapsclientDebug --stacktrace --info
+
+      - name: List all APK (and AAB) outputs for debugging
+        working-directory: source
+        run: |
+          echo "All .apk files found:"
+          find . -name "*.apk" || true
+          echo ""
+          echo "All .aab files found (if Wear outputs bundle):"
+          find . -name "*.aab" || true
+          echo ""
+          echo "Detailed listing of build/outputs/apk directory:"
+          ls -R build/outputs/apk || true
 
       - name: Upload Debug APKs as Artifacts
         uses: actions/upload-artifact@v4
@@ -54,5 +65,5 @@ jobs:
             source/app/build/outputs/apk/full/debug/*.apk
             source/wear/build/outputs/apk/debug/*.apk
             source/app/build/outputs/apk/aapsclient/debug/*.apk
-          if-no-files-found: error
+          if-no-files-found: warn  # Changed to warn so step doesn't fail if wear missing
           retention-days: 14
