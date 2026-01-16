@@ -1,7 +1,7 @@
-name: Build AndroidAPS 3.4.0.0 APKs # This is with Release Option. Kelvin, This should work.
+name: Build AndroidAPS 3.4.0.0 APKs
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   build:
@@ -32,58 +32,68 @@ jobs:
         working-directory: source
         run: yes | ./gradlew --no-daemon sdk:acceptLicenses || true
 
-      
-      - name: Build Smartphone (Full) APK
+      # Debug builds (always run)
+      - name: Build Smartphone Debug
         working-directory: source
         run: ./gradlew assembleFullDebug --stacktrace --info
 
-      - name: Build Smartwatch (Wear) APK
+      - name: Build Wear Debug
         working-directory: source
         run: ./gradlew :wear:assembleFullDebug --stacktrace --info || ./gradlew :wear:assembleDebug --stacktrace --info
 
-      - name: Build Client (Aapsclient) APK
+      - name: Build Client Debug
         working-directory: source
         run: ./gradlew assembleAapsclientDebug --stacktrace --info
 
-      #  Release build (uncomment when signing is set up)
-      # - name: Decode Keystore (add secrets first!)
-      #   if: false  # change to true when ready
-      #   run: echo "${{ secrets.SIGNING_KEY }}" | base64 --decode > source/keystore.jks
-      #
-      # - name: Build Smartphone (Full) Release APK
-      #   working-directory: source
-      #   env:
-      #     STORE_FILE: keystore.jks
-      #     STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-      #     KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-      #     KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      #   run: ./gradlew assembleFullRelease --stacktrace --info
+      # Release builds (now enabled with secrets)
+      - name: Decode Keystore
+        run: echo "${{ secrets.SIGNING_KEY }}" | base64 --decode > source/keystore.jks
 
-      # check all APKs with navigation files
-      - name: List Outputs & Navigation Resources
+      - name: Build Smartphone Release
+        working-directory: source
+        env:
+          STORE_FILE: keystore.jks
+          STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleFullRelease --stacktrace --info
+
+      - name: Build Client Release
+        working-directory: source
+        env:
+          STORE_FILE: keystore.jks
+          STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleAapsclientRelease --stacktrace --info
+
+      - name: Build Wear Release
+        working-directory: source
+        env:
+          STORE_FILE: keystore.jks
+          STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew :wear:assembleFullRelease --stacktrace --info || ./gradlew :wear:assembleRelease --stacktrace --info
+
+      # Diagnostics
+      - name: List Outputs
         working-directory: source
         run: |
-          echo "=== All .apk files ==="
           find . -name "*.apk" || true
-          echo ""
-          echo "=== All .aab files ==="
           find . -name "*.aab" || true
-          echo ""
-          echo "=== Navigation directory contents (look for pod deactivation graph) ==="
-          find . -path "*/res/navigation/*" -name "*.xml" || true
-          echo ""
-          echo "=== Detailed apk output dirs ==="
           ls -R app/build/outputs/apk || true
           ls -R wear/build/outputs/apk || true
 
-      - name: Upload Artifacts (debug focus)
+      # Upload all APKs (debug + release)
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: aaps-3.4.0.0-apks
           path: |
             source/**/debug/**/*.apk
             source/**/debug/*.apk
-            # Add release paths when enabled:
-            # source/**/release/**/*.apk
+            source/**/release/**/*.apk
+            source/**/release/*.apk
           if-no-files-found: warn
           retention-days: 14
