@@ -1,21 +1,22 @@
-name: Build AndroidAPS 3.4.0.0 APKs
+name: Build AndroidAPS 3.4.0.0 Signed Release APKs
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-release:
+    runs-on: ubuntu-latest  
 
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 21 with Gradle cache
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
+          cache: gradle  
 
       - name: Clone original AndroidAPS repo at tag 3.4.0.0
         run: |
@@ -32,23 +33,11 @@ jobs:
         working-directory: source
         run: yes | ./gradlew --no-daemon sdk:acceptLicenses || true
 
-      # Debug builds (always run)
-      - name: Build Smartphone Debug
-        working-directory: source
-        run: ./gradlew assembleFullDebug --stacktrace --info
-
-      - name: Build Wear Debug
-        working-directory: source
-        run: ./gradlew :wear:assembleFullDebug --stacktrace --info || ./gradlew :wear:assembleDebug --stacktrace --info
-
-      - name: Build Client Debug
-        working-directory: source
-        run: ./gradlew assembleAapsclientDebug --stacktrace --info
-
-      # Release builds (now enabled with secrets)
+      
       - name: Decode Keystore
         run: echo "${{ secrets.SIGNING_KEY }}" | base64 --decode > source/keystore.jks
 
+    
       - name: Build Smartphone Release
         working-directory: source
         env:
@@ -56,7 +45,7 @@ jobs:
           STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleFullRelease --stacktrace --info
+        run: ./gradlew assembleFullRelease --stacktrace --info --max-workers 4  # --max-workers speeds up
 
       - name: Build Client Release
         working-directory: source
@@ -65,7 +54,7 @@ jobs:
           STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleAapsclientRelease --stacktrace --info
+        run: ./gradlew assembleAapsclientRelease --stacktrace --info --max-workers 4
 
       - name: Build Wear Release
         working-directory: source
@@ -74,26 +63,25 @@ jobs:
           STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew :wear:assembleFullRelease --stacktrace --info || ./gradlew :wear:assembleRelease --stacktrace --info
+        run: ./gradlew :wear:assembleFullRelease --stacktrace --info --max-workers 4 || ./gradlew :wear:assembleRelease --stacktrace --info --max-workers 4
 
-      # Diagnostics
-      - name: List Outputs
+      
+      - name: List Release Outputs
         working-directory: source
         run: |
-          find . -name "*.apk" || true
-          find . -name "*.aab" || true
+          echo "=== Release APKs ==="
+          find . -name "*Release.apk" || true
+          find . -name "*Release.aab" || true
           ls -R app/build/outputs/apk || true
           ls -R wear/build/outputs/apk || true
 
-      # Upload all APKs (debug + release)
-      - name: Upload Artifacts
+      
+      - name: Upload Release Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: aaps-3.4.0.0-apks
+          name: aaps-3.4.0.0-release-apks
           path: |
-            source/**/debug/**/*.apk
-            source/**/debug/*.apk
             source/**/release/**/*.apk
             source/**/release/*.apk
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
